@@ -138,6 +138,20 @@ export const recommendationSchema = z.object({
 });
 export type Recommendation = z.infer<typeof recommendationSchema>;
 
+/** One output of a transaction. `is_mine`/`is_change` are null when no node wallet could be asked. */
+export const txOutputSchema = z.object({
+  vout: z.number().int().nonnegative(),
+  value_sat: z.number().int().nonnegative(),
+  address: z.string().nullable(),
+  is_mine: z.boolean().nullable(),
+  is_change: z.boolean().nullable(),
+});
+export type TxOutput = z.infer<typeof txOutputSchema>;
+
+export const outputsBodySchema = z.object({
+  outputs: z.array(txOutputSchema),
+});
+
 export const jobCreatedSchema = z.object({
   job_id: z.string(),
   route: routeKindSchema,

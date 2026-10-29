@@ -37,6 +37,7 @@ import {
   historySchema,
   jobCreatedSchema,
   jobSchema,
+  outputsBodySchema,
   recommendationSchema,
   syncBodySchema,
   type HistoryEntry,
@@ -181,6 +182,20 @@ export function useAnalyze() {
         `/v2/analyze/${encodeURIComponent(input.txid.trim())}?${analyzeQuery(input)}`,
         recommendationSchema,
       ),
+  });
+}
+
+/** The outputs of a transaction, for picking the change output. Never retried: a failure just falls back to typing the index. */
+export function useTxOutputs(txid: string) {
+  return useQuery({
+    queryKey: ['outputs', txid],
+    queryFn: ({ signal }) =>
+      call(`/v2/outputs/${encodeURIComponent(txid)}`, outputsBodySchema, {
+        signal,
+      }),
+    retry: false,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
   });
 }
 

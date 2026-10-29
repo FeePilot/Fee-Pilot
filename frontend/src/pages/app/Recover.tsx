@@ -180,6 +180,7 @@ export default function Recover() {
                 <Builder
                   key={stage.kind}
                   kind={stage.kind}
+                  txid={form?.txid ?? ''}
                   onBuild={onBuild}
                   onCancel={() => setStage({ name: 'compare' })}
                 />
