@@ -1,0 +1,10 @@
+[package]
+name = "feepilot-providers"
+description = "External transaction accelerator adapters"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+feepilot-core.workspace = true
+thiserror.workspace = true

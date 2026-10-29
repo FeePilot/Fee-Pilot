@@ -1,0 +1,23 @@
+[package]
+name = "feepilot-tracker"
+description = "Worker that tracks pending, replaced and confirmed transactions"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+feepilot-core.workspace = true
+feepilot-bitcoin.workspace = true
+feepilot-store.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+sqlx.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+axum.workspace = true
+serde_json.workspace = true

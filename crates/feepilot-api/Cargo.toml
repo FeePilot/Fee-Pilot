@@ -1,0 +1,25 @@
+[package]
+name = "feepilot-api"
+description = "HTTP API: analyze txids, return recommendations and job status"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+feepilot-core.workspace = true
+feepilot-bitcoin.workspace = true
+feepilot-providers.workspace = true
+feepilot-store.workspace = true
+axum.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sqlx.workspace = true
+tokio.workspace = true
+tower-http.workspace = true
+uuid.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[dev-dependencies]
+http-body-util = "0.1"
+tower = { version = "0.5", features = ["util"] }

@@ -1,0 +1,34 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/feepilot-core",
+    "crates/feepilot-bitcoin",
+    "crates/feepilot-providers",
+    "crates/feepilot-store",
+    "crates/feepilot-api",
+    "crates/feepilot-tracker",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+rust-version = "1.80"
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "time"] }
+axum = "0.8"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "postgres", "migrate", "macros", "uuid", "json"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+tracing = "0.1"
+tower-http = { version = "0.6", default-features = false, features = ["fs"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+feepilot-core = { path = "crates/feepilot-core" }
+feepilot-bitcoin = { path = "crates/feepilot-bitcoin" }
+feepilot-providers = { path = "crates/feepilot-providers" }
+feepilot-store = { path = "crates/feepilot-store" }

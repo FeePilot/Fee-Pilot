@@ -1,0 +1,85 @@
+{
+  // ── Formatting ────────────────────────────────────────────────────────────
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  // Prettier is configured for frontend/ only. Without a config file it stays out of the way,
+  // so it never reformats the Rust crates, SQL migrations or the original web/ UI.
+  "prettier.requireConfig": true,
+  "[rust]": {
+    "editor.defaultFormatter": "rust-lang.rust-analyzer",
+    "editor.formatOnSave": true
+  },
+  "[sql]": { "editor.formatOnSave": false },
+  "[shellscript]": { "editor.formatOnSave": false },
+  "files.insertFinalNewline": true,
+  "files.trimTrailingWhitespace": true,
+  "files.eol": "\n",
+
+  // ── ESLint (flat config in frontend/) ──────────────────────────────────────
+  "eslint.useFlatConfig": true,
+  "eslint.workingDirectories": [{ "directory": "frontend", "changeProcessCWD": true }],
+  "eslint.validate": ["javascript", "javascriptreact", "typescript", "typescriptreact"],
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+
+  // ── TypeScript and Tailwind ───────────────────────────────────────────────
+  "typescript.tsdk": "frontend/node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  "typescript.preferences.importModuleSpecifier": "non-relative",
+  "typescript.preferences.preferTypeOnlyAutoImports": true,
+  "files.associations": { "*.css": "tailwindcss" },
+  "css.lint.unknownAtRules": "ignore",
+  "tailwindCSS.experimental.configFile": "frontend/src/styles.css",
+  "tailwindCSS.classFunctions": ["cn", "buttonStyles"],
+  "editor.quickSuggestions": { "strings": "on" },
+
+  // ── Rust ──────────────────────────────────────────────────────────────────
+  "rust-analyzer.check.command": "clippy",
+  "rust-analyzer.cargo.targetDir": true,
+
+  // ── Keep noise out of search and file watching (files stay visible in the tree) ──
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/target": true,
+    "**/dist": true,
+    "**/dist-ssr": true,
+    "**/dev-dist": true,
+    "**/.regtest": true,
+    "**/coverage": true,
+    "**/playwright-report": true,
+    "**/test-results": true,
+    "**/pnpm-lock.yaml": true,
+    "**/Cargo.lock": true
+  },
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "**/target/**": true,
+    "**/.regtest/**": true,
+    "**/dist/**": true,
+    "**/dist-ssr/**": true
+  },
+
+  // ── File nesting: a file sits under the file it belongs to ────────────────
+  "explorer.fileNesting.enabled": true,
+  "explorer.fileNesting.expand": false,
+  "explorer.fileNesting.patterns": {
+    // Node / frontend
+    "package.json": "pnpm-lock.yaml, pnpm-workspace.yaml, .npmrc, .nvmrc, .node-version, .prettierrc*, .prettierignore, eslint.config.*, .eslintignore, tsconfig*.json, vite.config.*, vitest.config.*, playwright.config.*, postcss.config.*, tailwind.config.*",
+    "tsconfig.json": "tsconfig.*.json",
+    "index.html": "CONTRACT.md",
+    // Components and their companions
+    "*.tsx": "${capture}.test.tsx, ${capture}.spec.tsx, ${capture}.stories.tsx, ${capture}.css, ${capture}.module.css",
+    "*.ts": "${capture}.test.ts, ${capture}.spec.ts, ${capture}.d.ts, ${capture}.gen.ts",
+    "*.js": "${capture}.test.js, ${capture}.spec.js, ${capture}.js.map",
+    "*.css": "${capture}.css.map",
+    // Rust
+    "Cargo.toml": "Cargo.lock, rust-toolchain, rust-toolchain.toml, rustfmt.toml, .rustfmt.toml, clippy.toml, deny.toml, .cargo",
+    "lib.rs": "${capture}.test.rs",
+    // Repo root
+    ".env.example": ".env, .env.*",
+    "docker-compose.yml": "docker-compose.*.yml, compose.yml, Dockerfile, .dockerignore",
+    "README.md": "LICENSE, CHANGELOG.md, CONTRIBUTING.md, SECURITY.md, CODE_OF_CONDUCT.md, .gitattributes, .editorconfig",
+    ".gitignore": ".prettierignore, .gitattributes, .dockerignore"
+  }
+}

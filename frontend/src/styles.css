@@ -1,0 +1,144 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/inter';
+
+/* Dark first. Semantic tokens switch with [data-theme]; Tailwind utilities read them. */
+:root,
+[data-theme='dark'] {
+  --bg: #0a0a0c;
+  --bg-raised: #101014;
+  --surface: rgb(24 24 29 / 0.72);
+  --surface-solid: #18181d;
+  --surface-2: #202026;
+  --line: rgb(255 255 255 / 0.09);
+  --line-strong: rgb(255 255 255 / 0.16);
+  --fg: #f4f1ea;
+  --muted: #a39f95;
+  --accent: #f7931a;
+  --accent-soft: #ffb347;
+  --accent-ink: #1d1100;
+  --ok: #5bd09a;
+  --ok-bg: rgb(91 208 154 / 0.12);
+  --warn: #f0b64d;
+  --warn-bg: rgb(240 182 77 / 0.12);
+  --bad: #ff8d82;
+  --bad-bg: rgb(255 141 130 / 0.12);
+  --info: #8db1ff;
+  --info-bg: rgb(141 177 255 / 0.12);
+  --shadow:
+    0 1px 0 rgb(255 255 255 / 0.04) inset, 0 20px 50px -20px rgb(0 0 0 / 0.7);
+  --glow:
+    0 0 0 1px rgb(247 147 26 / 0.35), 0 10px 40px -8px rgb(247 147 26 / 0.45);
+  color-scheme: dark;
+}
+
+[data-theme='light'] {
+  --bg: #f7f5f0;
+  --bg-raised: #ffffff;
+  --surface: rgb(255 255 255 / 0.78);
+  --surface-solid: #ffffff;
+  --surface-2: #efece5;
+  --line: rgb(20 18 12 / 0.1);
+  --line-strong: rgb(20 18 12 / 0.2);
+  --fg: #1c1b19;
+  --muted: #625e55;
+  --accent: #d97a06;
+  --accent-soft: #f7931a;
+  --accent-ink: #ffffff;
+  --ok: #14794a;
+  --ok-bg: #dff3e8;
+  --warn: #8a5300;
+  --warn-bg: #fdf0d6;
+  --bad: #a3271d;
+  --bad-bg: #fbe3e0;
+  --info: #28509e;
+  --info-bg: #e3ebfb;
+  --shadow:
+    0 1px 0 rgb(255 255 255 / 0.8) inset, 0 18px 40px -22px rgb(40 30 10 / 0.35);
+  --glow:
+    0 0 0 1px rgb(217 122 6 / 0.4), 0 10px 36px -10px rgb(217 122 6 / 0.45);
+  color-scheme: light;
+}
+
+@theme inline {
+  --font-sans:
+    'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI',
+    sans-serif;
+  --font-mono:
+    ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+  --color-bg: var(--bg);
+  --color-raised: var(--bg-raised);
+  --color-surface: var(--surface);
+  --color-solid: var(--surface-solid);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-ink: var(--accent-ink);
+  --color-ok: var(--ok);
+  --color-ok-bg: var(--ok-bg);
+  --color-warn: var(--warn);
+  --color-warn-bg: var(--warn-bg);
+  --color-bad: var(--bad);
+  --color-bad-bg: var(--bad-bg);
+  --color-info: var(--info);
+  --color-info-bg: var(--info-bg);
+  --shadow-card: var(--shadow);
+  --shadow-glow: var(--glow);
+  --radius-card: 1.25rem;
+}
+
+html {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100dvh;
+  margin: 0;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/* Shown when JavaScript has not run: scroll reveals start hidden, so undo that. */
+.no-js [data-reveal] {
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+/* Radix popovers (Select): a short pop, off for reduced motion. */
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  [data-pop][data-state='open'] {
+    animation: pop-in 140ms ease-out;
+  }
+}

@@ -1,0 +1,15 @@
+[package]
+name = "feepilot-bitcoin"
+description = "Bitcoin data adapter (Bitcoin Core RPC) and the wallet/signing boundary"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+feepilot-core.workspace = true
+reqwest.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["net", "io-util"] }

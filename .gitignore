@@ -1,0 +1,54 @@
+# ── Rust ────────────────────────────────────────────────────────────────────
+# Build output (the compiler, clippy and rust-analyzer all write here).
+**/target/
+**/*.rs.bk
+
+# ── Local data and secrets ──────────────────────────────────────────────────
+# Real settings stay local; only the documented template is committed.
+.env
+.env.*
+!.env.example
+# Throwaway Bitcoin Core regtest data and logs written by scripts/demo.sh
+.regtest/
+*.log
+
+# ── Lock files (kept out of the repository by choice) ───────────────────────
+Cargo.lock
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
+# ── Node / web ──────────────────────────────────────────────────────────────
+node_modules/
+# Build output: the Vite client build, the SSR bundle used for prerendering, PWA dev output
+dist/
+dist-ssr/
+dev-dist/
+.vite/
+*.tsbuildinfo
+# Tool caches and temp files
+.eslintcache
+.pnpm-store/
+.cache/
+vite.config.*.timestamp-*
+npm-debug.log*
+pnpm-debug.log*
+yarn-error.log*
+# Test and report output
+coverage/
+playwright-report/
+test-results/
+
+# ── Editors ─────────────────────────────────────────────────────────────────
+# Share only the settings and extension recommendations, never personal state.
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+
+# ── Operating system and tool junk ──────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*~
+*.pid
