@@ -121,12 +121,6 @@ where
         .route("/jobs/{id}/submit", post(submit_job::<N, S>))
 }
 
-/// Serve the static frontend in `dir` for every path the API does not handle.
-/// Unknown paths get the real 404, not `index.html`: the UI keeps its state in the URL hash.
-pub fn with_web(app: Router, dir: impl AsRef<std::path::Path>) -> Router {
-    app.fallback_service(tower_http::services::ServeDir::new(dir))
-}
-
 /// Serve a built single-page app from `dir`: `app-shell.html` for every `/app/...` route,
 /// prerendered pages and assets as files, and a real 404 (with `404.html`) for anything else.
 pub fn with_spa(app: Router, dir: impl AsRef<std::path::Path>) -> Router {
@@ -1124,8 +1118,8 @@ mod tests {
 
     #[tokio::test]
     async fn responses_carry_security_headers_and_api_responses_are_not_cached() {
-        let web = static_fixture();
-        let app = with_security_headers(with_web(app(Err("unused")), web));
+        let web = spa_fixture();
+        let app = with_security_headers(with_spa(app(Err("unused")), web));
         let page = app
             .clone()
             .oneshot(Request::get("/").body(Body::empty()).unwrap())
@@ -1150,9 +1144,9 @@ mod tests {
 
     #[tokio::test]
     async fn the_rate_limit_applies_to_the_api_but_not_to_static_files() {
-        let web = static_fixture();
+        let web = spa_fixture();
         let app = with_rate_limit(
-            with_web(app(Err("unused")), web),
+            with_spa(app(Err("unused")), web),
             Arc::new(RateLimiter::per_minute(2)),
         );
         let hit = |uri: &str| {
@@ -1308,20 +1302,6 @@ mod tests {
         std::fs::remove_dir_all(dir).ok();
     }
 
-    /// A minimal static site (home page and one asset), so the static-serving tests do not
-    /// depend on any real UI folder existing in the repository.
-    fn static_fixture() -> std::path::PathBuf {
-        let dir = std::env::temp_dir().join(format!("feepilot-static-{}", Uuid::new_v4()));
-        std::fs::create_dir_all(&dir).unwrap();
-        std::fs::write(
-            dir.join("index.html"),
-            "<!doctype html><title>FeePilot</title><p>FeePilot</p>",
-        )
-        .unwrap();
-        std::fs::write(dir.join("app.js"), "console.log(1)").unwrap();
-        dir
-    }
-
     /// A tiny built site: home, app shell, 404 and one asset.
     fn spa_fixture() -> std::path::PathBuf {
         let dir = std::env::temp_dir().join(format!("feepilot-spa-{}", Uuid::new_v4()));
@@ -1374,9 +1354,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn web_ui_is_served_without_shadowing_the_api() {
-        let web = static_fixture();
-        let app = with_web(app(Err("unused")), web);
+    async fn the_built_app_is_served_without_shadowing_the_api() {
+        let web = spa_fixture();
+        let app = with_spa(app(Err("unused")), web);
 
         let page = app
             .clone()
@@ -1385,7 +1365,7 @@ mod tests {
             .unwrap();
         assert_eq!(page.status(), StatusCode::OK);
         let html = page.into_body().collect().await.unwrap().to_bytes();
-        assert!(String::from_utf8_lossy(&html).contains("FeePilot"));
+        assert!(String::from_utf8_lossy(&html).contains("HOME-PAGE"));
 
         let (status, body) = call(&app, Request::get("/health").body(Body::empty()).unwrap()).await;
         assert_eq!(

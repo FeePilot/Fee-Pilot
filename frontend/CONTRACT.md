@@ -2,14 +2,14 @@
 
 FeePilot's React app. **Vite 7, React 19, strict TypeScript, Tailwind v4, Radix, motion (Framer Motion),
 TanStack Query, react-hook-form + zod, react-helmet-async, vite-plugin-pwa.** The Rust API serves the
-build (`FEEPILOT_WEB_DIR=frontend/dist`). The old UI in `../web/` and the `/v1` API stay untouched.
+build (`FEEPILOT_WEB_DIR=frontend/dist`). It replaced the original static UI (removed; see git history). The `/v1` API is unchanged.
 
 Commands (run from `frontend/`; pnpm lives at `~/.cache/node/corepack/v1/pnpm/12.5.1/pnpm`):
 `node_modules/.bin/tsc --noEmit` · `node_modules/.bin/vitest run` · `node_modules/.bin/vite build`.
 
 ## Rules
 
-- **Do not commit.** Do not touch `../web/`, `../crates/`, `../scripts/`, or files you do not own.
+- **Do not commit.** Do not touch `../crates/`, `../scripts/`, or files you do not own.
 - No new dependencies unless unavoidable; if you add one, say so in your report.
 - Strict TS: `noUncheckedIndexedAccess`, `verbatimModuleSyntax` (use `import type`), no `any`.
 - **Honest copy.** FeePilot never guarantees confirmation, never holds keys, never broadcasts without
@@ -62,7 +62,7 @@ Endpoints (all under `/v2`): `GET /fees` (refresh; 200 + `refresh.ok:false` when
 `GET /fees/latest`, `POST /orders/sync`, `GET /analyze/{txid}?urgency&max_budget_sat&can_sign_inputs&controls_output&output_value_sat`,
 `POST /jobs/rbf`, `POST /jobs/cpfp`, `GET /jobs/{id}`, `GET /jobs/{id}/history`, `POST /jobs/{id}/submit`.
 The exact JSON shapes are the Rust structs: `crates/feepilot-core/src/{types,strategy,snapshot}.rs`,
-`crates/feepilot-store/src/{lib,orders}.rs`, `crates/feepilot-api/src/lib.rs`. The old client in `../web/*.js` shows how each is used.
+`crates/feepilot-store/src/{lib,orders}.rs`, `crates/feepilot-api/src/lib.rs`. The original client (git history, `web/*.js`) showed how each is used.
 
 ## Data layer contract (`src/api/`)
 

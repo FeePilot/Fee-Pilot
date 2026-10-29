@@ -9,6 +9,11 @@ import { AppRoutes } from './routes';
 const el = document.getElementById('root');
 if (!el) throw new Error('#root is missing');
 
+// Links from the original UI looked like `/#job=<id>`; keep them working.
+const legacy = /^#job=([0-9a-f-]{36})$/i.exec(window.location.hash);
+// A full navigation, so the prerendered landing page is never hydrated as a job page.
+if (legacy) window.location.replace(`/app/jobs/${legacy[1]}`);
+
 const app = (
   <StrictMode>
     <AppProviders>

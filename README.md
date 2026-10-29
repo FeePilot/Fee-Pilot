@@ -68,7 +68,7 @@ crates/
   feepilot-tracker/        Worker: status tracking, history, reorgs, notifications
 migrations/                PostgreSQL schema
 scripts/regtest-setup.sh   Spin up a funded Bitcoin Core regtest node
-web/                       Web UI (static, no build step), served by the API
+frontend/                  React web app (Vite + TypeScript), built to frontend/dist and served by the API
 docs/                      ARCHITECTURE.md, ROADMAP.md, SIGNET.md
 docker-compose.yml         Local PostgreSQL
 ```
@@ -88,7 +88,7 @@ cargo test --workspace -- --ignored --test-threads=1   # live regtest + PostgreS
 set -a; . ./.env; set +a          # export the settings
 cargo run -p feepilot-api         # API on 127.0.0.1:8080; applies migrations on start
 cargo run -p feepilot-tracker     # tracking worker: polls active jobs, records history, notifies
-# web UI: set FEEPILOT_WEB_DIR=web (already in .env.example) and open http://127.0.0.1:8080/
+# web app: cd frontend && pnpm install && pnpm build, then open http://127.0.0.1:8080/ (FEEPILOT_WEB_DIR=frontend/dist is in .env.example)
 ```
 
 Settings for the offline advisor, rate limit and retention are documented in `.env.example`. Running on signet: [`docs/SIGNET.md`](docs/SIGNET.md).

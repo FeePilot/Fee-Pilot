@@ -35,7 +35,8 @@ scripts/demo-stuck-tx.sh | sed 's/^/   /'
 
 if [ "$MODE" = "ui" ]; then
   step "Ready"
-  if [ -f "$FEEPILOT_WEB_DIR/app-shell.html" ]; then APP_URL="$API/app?txid=$TXID"; else APP_URL="$API/?txid=$TXID"; fi
+  [ -f "$FEEPILOT_WEB_DIR/app-shell.html" ] || say "No frontend build found: run 'pnpm build' in frontend/ first."
+  APP_URL="$API/app?txid=$TXID"
   say "Open:      $APP_URL"
   say "RBF:       choose \"I sent it\" -> Yes, then change output = vout $CHANGE_VOUT"
   say "CPFP:      choose \"I received it\" -> Yes, output vout $PAY_VOUT, destination $RECV_ADDR"

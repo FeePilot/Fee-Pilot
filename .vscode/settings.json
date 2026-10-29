@@ -3,7 +3,7 @@
   "editor.formatOnSave": true,
   "editor.defaultFormatter": "esbenp.prettier-vscode",
   // Prettier is configured for frontend/ only. Without a config file it stays out of the way,
-  // so it never reformats the Rust crates, SQL migrations or the original web/ UI.
+  // so it never reformats the Rust crates or SQL migrations.
   "prettier.requireConfig": true,
   "[rust]": {
     "editor.defaultFormatter": "rust-lang.rust-analyzer",
