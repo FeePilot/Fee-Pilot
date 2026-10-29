@@ -89,10 +89,10 @@ export function FindForm({
           <FormInput
             control={control}
             name="budget"
-            label="Max extra fee (sats)"
+            label="Max extra fee (sats), optional"
             inputMode="numeric"
             placeholder="no limit"
-            hint="Routes costing more than this are marked not possible."
+            hint="Optional. Leave empty and FeePilot works out the fee itself and recommends the cheapest route that works. Fill it in only to set a ceiling: routes costing more than this are marked not possible. This is a limit in sats, not a fee rate."
           />
           <FormSelect
             control={control}

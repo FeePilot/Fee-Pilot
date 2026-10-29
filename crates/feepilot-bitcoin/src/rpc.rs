@@ -1,7 +1,8 @@
 //! Bitcoin Core JSON-RPC client implementing [`BitcoinDataSource`].
 
 use feepilot_core::{
-    btc_per_kvb_to_sat_per_vb, FeeSnapshot, Network, Outpoint, TxAnalysis, TxStatus, FEE_TARGETS,
+    btc_per_kvb_to_sat_per_vb, FeeSnapshot, Network, Outpoint, TxAnalysis, TxOutput, TxStatus,
+    FEE_TARGETS,
 };
 use serde_json::{json, Value};
 
@@ -188,6 +189,36 @@ impl BitcoinDataSource for CoreRpc {
         }
     }
 
+    async fn tx_outputs(&self, txid: &str) -> Result<Vec<TxOutput>, BitcoinError> {
+        let tx = match self.call("getrawtransaction", json!([txid, 1])).await {
+            Ok(tx) => tx,
+            Err(BitcoinError::Rpc { code, .. }) if code == RPC_INVALID_ADDRESS_OR_KEY => {
+                return Err(BitcoinError::InvalidRequest(
+                    "transaction not found on this node".into(),
+                ))
+            }
+            Err(e) => return Err(e),
+        };
+        let mut outputs = parse_outputs(&tx)?;
+        let wallets = self.wallet_clients().await;
+        for o in &mut outputs {
+            let Some(addr) = &o.address else { continue };
+            let (mut asked, mut mine, mut change) = (false, false, false);
+            for w in &wallets {
+                if let Ok(info) = w.call("getaddressinfo", json!([addr])).await {
+                    asked = true;
+                    mine |= info["ismine"].as_bool().unwrap_or(false);
+                    change |= info["ischange"].as_bool().unwrap_or(false);
+                }
+            }
+            if asked {
+                o.is_mine = Some(mine);
+                o.is_change = Some(change);
+            }
+        }
+        Ok(outputs)
+    }
+
     async fn find_spenders(
         &self,
         outpoints: &[Outpoint],
@@ -202,6 +233,41 @@ impl BitcoinDataSource for CoreRpc {
         let res = self.call("gettxspendingprevout", json!([query])).await?;
         parse_spenders(&res, outpoints.len())
     }
+}
+
+impl CoreRpc {
+    /// One client per wallet loaded on the node, or just the configured wallet. Empty when
+    /// the node cannot list its wallets, so ownership stays unknown instead of guessed.
+    async fn wallet_clients(&self) -> Vec<CoreRpc> {
+        if self.wallet.is_some() {
+            return vec![self.clone()];
+        }
+        match self.call("listwallets", json!([])).await {
+            Ok(Value::Array(names)) => names
+                .iter()
+                .filter_map(Value::as_str)
+                .map(|n| self.clone().with_wallet(n))
+                .collect(),
+            _ => Vec::new(),
+        }
+    }
+}
+
+fn parse_outputs(tx: &Value) -> Result<Vec<TxOutput>, BitcoinError> {
+    tx["vout"]
+        .as_array()
+        .ok_or_else(|| malformed("vout"))?
+        .iter()
+        .map(|o| {
+            Ok(TxOutput {
+                vout: o["n"].as_u64().ok_or_else(|| malformed("vout.n"))? as u32,
+                value_sat: btc_to_sat(o["value"].as_f64().ok_or_else(|| malformed("vout.value"))?),
+                address: o["scriptPubKey"]["address"].as_str().map(str::to_string),
+                is_mine: None,
+                is_change: None,
+            })
+        })
+        .collect()
 }
 
 fn parse_inputs(tx: &Value) -> Result<Vec<Outpoint>, BitcoinError> {
@@ -380,6 +446,22 @@ mod tests {
             parse_spenders(&res, 3).is_err(),
             "length mismatch is an error"
         );
+    }
+
+    #[test]
+    fn outputs_are_parsed_with_unknown_ownership() {
+        let tx = json!({ "vout": [
+            { "n": 0, "value": 0.00025, "scriptPubKey": { "address": "bcrt1qa" } },
+            { "n": 1, "value": 0.0, "scriptPubKey": { "type": "nulldata" } }
+        ]});
+        let outs = parse_outputs(&tx).unwrap();
+        assert_eq!((outs[0].vout, outs[0].value_sat), (0, 25_000));
+        assert_eq!(outs[0].address.as_deref(), Some("bcrt1qa"));
+        assert_eq!(outs[1].address, None);
+        assert!(outs
+            .iter()
+            .all(|o| o.is_mine.is_none() && o.is_change.is_none()));
+        assert!(parse_outputs(&json!({})).is_err());
     }
 
     #[test]

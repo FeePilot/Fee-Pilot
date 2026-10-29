@@ -114,6 +114,7 @@ where
         .route("/fees/latest", get(latest_fees::<N, S>))
         .route("/orders/sync", post(sync_orders::<N, S>))
         .route("/analyze/{txid}", get(analyze::<N, S>))
+        .route("/outputs/{txid}", get(tx_outputs::<N, S>))
         .route("/jobs/rbf", post(create_rbf_job::<N, S>))
         .route("/jobs/cpfp", post(create_cpfp_job::<N, S>))
         .route("/jobs/{id}", get(get_job::<N, S>))
@@ -516,6 +517,26 @@ where
         prefs,
         child_vsize: DEFAULT_CHILD_VSIZE,
     })))
+}
+
+#[derive(Serialize)]
+struct OutputsResponse {
+    outputs: Vec<feepilot_core::TxOutput>,
+}
+
+/// The outputs of a transaction, so the user can pick their change instead of typing an index.
+/// `is_change` is only set when a wallet loaded on the node says so.
+async fn tx_outputs<N, S>(
+    State(state): State<AppState<N, S>>,
+    Path(txid): Path<String>,
+) -> Result<Json<OutputsResponse>, ApiError>
+where
+    N: BitcoinDataSource + SigningBoundary + Send + Sync + 'static,
+    S: JobStore + 'static,
+{
+    validate_txid(&txid)?;
+    let outputs = state.node.tx_outputs(&txid).await?;
+    Ok(Json(OutputsResponse { outputs }))
 }
 
 #[derive(Deserialize)]

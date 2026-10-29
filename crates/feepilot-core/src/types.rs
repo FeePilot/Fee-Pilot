@@ -63,6 +63,20 @@ impl TxAnalysis {
     }
 }
 
+/// One output of a transaction, with what a wallet on the node says about it.
+/// `is_mine` and `is_change` are `None` when no wallet could be asked, never a guess.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TxOutput {
+    pub vout: u32,
+    pub value_sat: u64,
+    /// `None` for outputs with no address (e.g. OP_RETURN).
+    pub address: Option<String>,
+    /// A wallet loaded on the node owns this address.
+    pub is_mine: Option<bool>,
+    /// A wallet loaded on the node marks this address as its change.
+    pub is_change: Option<bool>,
+}
+
 /// A transaction output reference (the thing an input spends).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Outpoint {

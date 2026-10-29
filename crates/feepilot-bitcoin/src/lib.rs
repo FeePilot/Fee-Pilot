@@ -10,7 +10,7 @@ mod signing;
 pub use http_fees::{FeeApiKind, HttpFeeSource};
 pub use rpc::CoreRpc;
 
-use feepilot_core::{FeeSnapshot, Network, Outpoint, TxAnalysis};
+use feepilot_core::{FeeSnapshot, Network, Outpoint, TxAnalysis, TxOutput};
 
 #[derive(Debug, thiserror::Error)]
 pub enum BitcoinError {
@@ -50,6 +50,15 @@ pub trait BitcoinDataSource {
         &self,
         txid: &str,
     ) -> impl std::future::Future<Output = Result<Vec<Outpoint>, BitcoinError>> + Send;
+
+    /// The outputs of a transaction, marked with what the node's loaded wallets know about
+    /// them. Sources without that knowledge may return an empty list.
+    fn tx_outputs(
+        &self,
+        _txid: &str,
+    ) -> impl std::future::Future<Output = Result<Vec<TxOutput>, BitcoinError>> + Send {
+        async { Ok(Vec::new()) }
+    }
 
     /// For each outpoint, the txid of the mempool transaction spending it, if any.
     /// The result is aligned with `outpoints`.
