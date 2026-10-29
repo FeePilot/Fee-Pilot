@@ -116,11 +116,12 @@ and appends to `tx_status_history` only when status, confirmations or detail cha
 
 ## Web UI
 
-`web/` is static HTML and ES modules with no build step, served by `feepilot-api` when
-`FEEPILOT_WEB_DIR` is set (API routes always win; unknown paths 404). It holds no secrets: it shows
-the unsigned PSBT, takes the wallet-signed PSBT back, and requires an explicit approval tick before
-`POST /v1/jobs/{id}/submit`. State lives in the API; the page keeps only `#job=<id>` so a reload
-resumes. It polls the job and its history while the job is active.
+`frontend/` is a React + TypeScript app (Vite, built to `frontend/dist`), served by `feepilot-api`
+when `FEEPILOT_WEB_DIR` is set (API routes always win; `/app/...` gets the app shell, unknown paths
+get the real 404). It talks to the enveloped `/v2` API. It holds no secrets: it shows the unsigned
+PSBT, takes the wallet-signed PSBT back, and requires an explicit approval tick before submitting
+the job. State lives in the API; a job is addressable as `/app/jobs/<id>` so a reload resumes (old
+`/#job=<id>` links redirect there). It polls the job and its history while the job is active.
 
 ## Fee awareness and offline continuity
 
@@ -134,13 +135,13 @@ resumes. It polls the job and its history while the job is active.
   approximate) instead of the node. 10 s timeout, 64 KB body cap, no fallback rate, floors unknown;
   a failure or a response with no usable rate is a failed refresh and the last good snapshot stays.
   Only fees use it: analysis and PSBTs still go to Core RPC.
-- **Offline advisor** (`web/advisor.js`): pure functions over the cached snapshot. Freshness is
+- **Offline advisor** (`frontend/src/lib/advisor.ts`): pure functions over the cached snapshot. Freshness is
   `recent`, `past_window`, `very_stale` or `missing` by age against the policy
   (`FEEPILOT_FRESH_SECS`, `FEEPILOT_STALE_SECS`, served with the snapshot). Urgency picks the 2, 6 or
   144 block estimate; total fee is rate x size only when the size is known. Stale data lowers
   confidence and adds a warning; it does not alter the rate. The browser keeps the last snapshot in
   `localStorage` and a service worker lets the page itself open with no network.
-- **Offline queue** (`web/queue.js`): records live in IndexedDB (memory fallback with a warning).
+- **Offline queue** (`frontend/src/lib/queue.ts`): records live in IndexedDB (memory fallback with a warning).
   Each has a client UUID, a separate idempotency key, the state `awaiting_verification`, and is
   described as "not proof of payment".
 - **Reconnect** (`POST /v1/orders/sync`): the page refreshes the snapshot first, then syncs. The first

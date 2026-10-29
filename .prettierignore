@@ -6,7 +6,6 @@ target/
 .regtest/
 
 # The original static UI is deliberately left as it is
-web/
 
 # Generated output anywhere
 node_modules/

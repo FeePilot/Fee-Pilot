@@ -68,6 +68,36 @@ async function call<S extends z.ZodType>(
   return res;
 }
 
+/** The browser's `online` event only says a network exists; ask the API itself, as the original UI did. */
+export async function probeHealth(): Promise<boolean> {
+  let ok = false;
+  try {
+    const res = await fetch(`${import.meta.env.VITE_API_BASE ?? ''}/health`, {
+      cache: 'no-store',
+    });
+    ok = res.ok;
+  } catch {
+    ok = false;
+  }
+  setReachable(ok);
+  return ok;
+}
+
+/** Run `onBack` after the browser comes back online and the API answers. */
+function useOnReconnect(onBack: () => void) {
+  const latest = useRef(onBack);
+  latest.current = onBack;
+  useEffect(() => {
+    const handler = () => {
+      void probeHealth().then((ok) => {
+        if (ok) latest.current();
+      });
+    };
+    window.addEventListener('online', handler);
+    return () => window.removeEventListener('online', handler);
+  }, []);
+}
+
 function subscribeOnline(onChange: () => void) {
   listeners.add(onChange);
   window.addEventListener('online', onChange);
@@ -126,6 +156,7 @@ export function useFees(): FeesView {
   const refresh = useCallback(async () => {
     await refetch();
   }, [refetch]);
+  useOnReconnect(() => void refetch());
 
   return useMemo<FeesView>(() => {
     if (query.data) return { ...query.data, refresh };
@@ -363,6 +394,9 @@ export function useOrders(
       await load().catch(() => undefined);
     }
   }, [load]);
+
+  // Back online: reconcile the queued notes, as the original UI did.
+  useOnReconnect(() => void sync());
 
   return { orders, add, remove, sync, syncing, message, persistent };
 }

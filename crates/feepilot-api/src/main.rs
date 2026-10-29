@@ -37,15 +37,13 @@ async fn main() {
         fee_refresh_cooldown_secs: env_number("FEEPILOT_FEE_REFRESH_MIN_SECS", 10),
     };
     let mut app = feepilot_api::router_with_config(Arc::new(rpc), Arc::new(store), config);
-    // The web UI is optional; set FEEPILOT_WEB_DIR=web to serve it from the API.
+    // The React app is optional; set FEEPILOT_WEB_DIR=frontend/dist to serve the build from the API.
     if let Ok(dir) = std::env::var("FEEPILOT_WEB_DIR") {
-        // A built React app has an `app-shell.html`; the original static UI does not.
         if std::path::Path::new(&dir).join("app-shell.html").exists() {
             tracing::info!("serving the React app from {dir}");
             app = feepilot_api::with_spa(app, dir);
         } else {
-            tracing::info!("serving the web UI from {dir}");
-            app = feepilot_api::with_web(app, dir);
+            tracing::warn!("FEEPILOT_WEB_DIR={dir} has no app-shell.html; run `pnpm build` in frontend/. Serving the API only");
         }
     }
 
