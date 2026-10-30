@@ -66,7 +66,6 @@ export default function Recover() {
     const res = await analyze.mutateAsync({
       txid: values.txid,
       urgency: values.urgency,
-      budget: values.budget,
       canSign: values.canSign,
       controls: values.controls,
       outputValue: values.outputValue,
@@ -90,7 +89,6 @@ export default function Recover() {
     const base = {
       txid: form.txid,
       urgency: form.urgency,
-      ...(form.budget !== null ? { max_budget_sat: form.budget } : {}),
     };
     const res = await createJob.mutateAsync(
       req.kind === 'rbf'

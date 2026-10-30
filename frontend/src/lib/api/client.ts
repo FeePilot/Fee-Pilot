@@ -5,6 +5,7 @@ import {
   errorEnvelopeSchema,
   type ApiResult,
 } from './envelope';
+import { apiPath } from '../network';
 
 const BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? '';
 
@@ -27,7 +28,7 @@ export async function request<S extends z.ZodType>(
 ): Promise<ApiResult<z.infer<S>>> {
   let res: Response;
   try {
-    res = await fetch(`${BASE}${path}`, {
+    res = await fetch(`${BASE}${apiPath(path)}`, {
       method: options.method ?? 'GET',
       headers:
         options.json === undefined

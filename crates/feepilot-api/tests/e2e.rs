@@ -192,7 +192,7 @@ async fn pg_store_job_lifecycle() {
 
     // Compare-and-set: only one party wins a transition, and settled jobs leave the active list.
     assert!(store
-        .list_active()
+        .list_active(Network::Regtest)
         .await
         .unwrap()
         .iter()
@@ -206,7 +206,7 @@ async fn pg_store_job_lifecycle() {
         .await
         .unwrap());
     assert!(!store
-        .list_active()
+        .list_active(Network::Regtest)
         .await
         .unwrap()
         .iter()

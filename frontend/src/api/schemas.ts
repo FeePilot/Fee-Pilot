@@ -148,6 +148,12 @@ export const txOutputSchema = z.object({
 });
 export type TxOutput = z.infer<typeof txOutputSchema>;
 
+export const networksBodySchema = z.object({
+  default: networkSchema,
+  networks: z.array(networkSchema).min(1),
+});
+export type NetworksBody = z.infer<typeof networksBodySchema>;
+
 export const outputsBodySchema = z.object({
   outputs: z.array(txOutputSchema),
 });

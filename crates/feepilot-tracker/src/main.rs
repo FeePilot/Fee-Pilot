@@ -21,6 +21,8 @@ async fn main() {
         .init();
 
     let rpc = CoreRpc::from_env().unwrap_or_else(|e| panic!("invalid configuration: {e}"));
+    let extra = CoreRpc::extra_from_env(feepilot_bitcoin::BitcoinDataSource::network(&rpc))
+        .unwrap_or_else(|e| panic!("invalid configuration: {e}"));
     let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL is not set");
     let pool = PgPoolOptions::new()
         .max_connections(3)
@@ -32,17 +34,29 @@ async fn main() {
 
     let interval = Duration::from_secs(env_number("FEEPILOT_TRACK_INTERVAL_SECS", 30));
     let settle_depth = env_number("FEEPILOT_SETTLE_DEPTH", DEFAULT_SETTLE_DEPTH);
-    let notifier = Notifier::new(std::env::var("FEEPILOT_WEBHOOK_URL").ok());
+    let notifier = std::sync::Arc::new(Notifier::new(std::env::var("FEEPILOT_WEBHOOK_URL").ok()));
     // Old fee history, order notes and finished jobs are deleted; 0 keeps everything.
     let retention_days: u32 = env_number("FEEPILOT_RETENTION_DAYS", 30);
     let purger = store.clone();
-    let tracker = Tracker::new(rpc, store, settle_depth);
+    // One tracker per network, each asking only its own node about its own network's jobs.
+    let trackers: Vec<_> = std::iter::once(rpc)
+        .chain(extra)
+        .map(|node| Tracker::new(node, store.clone(), settle_depth))
+        .collect();
 
     tracing::info!(
-        "feepilot-tracker started (every {interval:?}, settles at {settle_depth} confirmations)"
+        "feepilot-tracker started for {} network(s) (every {interval:?}, settles at {settle_depth} confirmations)",
+        trackers.len()
     );
     tokio::select! {
-        _ = tracker.run(interval, &notifier) => {}
+        _ = async {
+            let mut set = tokio::task::JoinSet::new();
+            for tracker in trackers {
+                let notifier = notifier.clone();
+                set.spawn(async move { tracker.run(interval, &notifier).await });
+            }
+            while set.join_next().await.is_some() {}
+        } => {}
         _ = async {
             loop {
                 match purger.purge_older_than(retention_days).await {

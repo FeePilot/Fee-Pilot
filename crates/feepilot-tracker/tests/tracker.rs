@@ -184,7 +184,12 @@ async fn rbf_goes_pending_confirmed_settled_and_records_the_replacement() {
     assert!(h.tick().await.is_empty());
     assert_eq!(h.state(&job).await, JobState::Settled);
     // Settled jobs are no longer watched.
-    assert!(h.store().list_active().await.unwrap().is_empty());
+    assert!(h
+        .store()
+        .list_active(Network::Regtest)
+        .await
+        .unwrap()
+        .is_empty());
 }
 
 #[tokio::test]

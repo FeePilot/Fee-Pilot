@@ -65,6 +65,34 @@ impl CoreRpc {
         Ok(rpc)
     }
 
+    /// Clients for the extra networks named in the environment, beyond the primary one from
+    /// [`CoreRpc::from_env`]. A network is on when `FEEPILOT_<NETWORK>_RPC_URL` is set (for
+    /// example `FEEPILOT_SIGNET_RPC_URL`, with `_RPC_USER` and `_RPC_PASS`). No fallback fee
+    /// rate is applied, so a missing estimate shows as none. A network equal to the primary one
+    /// is ignored.
+    pub fn extra_from_env(primary: Network) -> Result<Vec<Self>, String> {
+        let mut out = Vec::new();
+        for (network, prefix) in [
+            (Network::Regtest, "FEEPILOT_REGTEST"),
+            (Network::Signet, "FEEPILOT_SIGNET"),
+            (Network::Testnet, "FEEPILOT_TESTNET"),
+            (Network::Mainnet, "FEEPILOT_MAINNET"),
+        ] {
+            if network == primary {
+                continue;
+            }
+            let Ok(url) = std::env::var(format!("{prefix}_RPC_URL")) else {
+                continue;
+            };
+            let var = |k: &str| {
+                std::env::var(format!("{prefix}_{k}"))
+                    .map_err(|_| format!("{prefix}_{k} is not set"))
+            };
+            out.push(Self::new(url, network).with_auth(var("RPC_USER")?, var("RPC_PASS")?));
+        }
+        Ok(out)
+    }
+
     /// Take fee snapshots from a public fee API instead of the node. Analysis and PSBT
     /// building still use the node.
     pub fn with_fee_api(mut self, api: HttpFeeSource) -> Self {

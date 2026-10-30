@@ -1,8 +1,9 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { Suspense } from 'react';
 import { Link, NavLink, useLocation, useOutlet } from 'react-router';
-import { useFees, useOnline } from '@/api/hooks';
+import { useFees, useNetworks, useOnline } from '@/api/hooks';
 import { Backdrop } from '@/components/background/Backdrop';
+import { NetworkSwitch } from '@/components/layout/NetworkSwitch';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { AlertIcon, WifiOffIcon } from '@/components/ui/icons';
 import { Pill } from '@/components/ui/Pill';
@@ -52,6 +53,8 @@ export default function AppLayout() {
   const { fees } = useFees();
   const location = useLocation();
   const outlet = useOutlet();
+  const { data: networks } = useNetworks();
+  const switchable = networks?.ok === true && networks.body.networks.length > 1;
   const network = fees?.snapshot?.network ?? null;
   const mainnet = network === 'mainnet';
 
@@ -107,7 +110,9 @@ export default function AppLayout() {
               </NavLink>
             ))}
           </nav>
-          {network ? (
+          {switchable ? (
+            <NetworkSwitch />
+          ) : network ? (
             <Pill tone={mainnet ? 'bad' : 'info'}>{network}</Pill>
           ) : null}
           <ThemeToggle />

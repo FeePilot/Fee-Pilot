@@ -20,6 +20,8 @@ async fn main() {
         .init();
 
     let rpc = CoreRpc::from_env().unwrap_or_else(|e| panic!("invalid configuration: {e}"));
+    let extra = CoreRpc::extra_from_env(feepilot_bitcoin::BitcoinDataSource::network(&rpc))
+        .unwrap_or_else(|e| panic!("invalid configuration: {e}"));
 
     let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL is not set");
     let pool = PgPoolOptions::new()
@@ -36,7 +38,12 @@ async fn main() {
         policy,
         fee_refresh_cooldown_secs: env_number("FEEPILOT_FEE_REFRESH_MIN_SECS", 10),
     };
-    let mut app = feepilot_api::router_with_config(Arc::new(rpc), Arc::new(store), config);
+    let mut app = feepilot_api::router_multi(
+        Arc::new(rpc),
+        extra.into_iter().map(Arc::new).collect(),
+        Arc::new(store),
+        config,
+    );
     // The React app is optional; set FEEPILOT_WEB_DIR=frontend/dist to serve the build from the API.
     if let Ok(dir) = std::env::var("FEEPILOT_WEB_DIR") {
         if std::path::Path::new(&dir).join("app-shell.html").exists() {

@@ -16,8 +16,8 @@ use feepilot_bitcoin::{
     BitcoinDataSource, BitcoinError, CpfpRequest, FeeSource, RbfRequest, SigningBoundary,
 };
 use feepilot_core::{
-    recommend, validate_txid, CoreError, Eligibility, FreshnessPolicy, Recommendation, RouteKind,
-    StrategyInput, TxAnalysis, TxStatus, Urgency, UserPreferences, DEFAULT_CHILD_VSIZE,
+    recommend, validate_txid, CoreError, Eligibility, FreshnessPolicy, Network, Recommendation,
+    RouteKind, StrategyInput, TxAnalysis, TxStatus, Urgency, UserPreferences, DEFAULT_CHILD_VSIZE,
 };
 use feepilot_store::{
     FeeCache, FeeStore, HistoryEntry, Job, JobState, JobStore, NewJob, NewOrder, OrderState,
@@ -46,11 +46,31 @@ impl Default for ApiConfig {
     }
 }
 
-/// Shared handler state: the Bitcoin node and the job store.
+/// The networks this server can talk to, for the client's network switch.
+#[derive(Debug, Clone, Serialize)]
+pub struct NetworkCatalog {
+    /// The network `/v1` and `/v2` (without a `/net/<name>` prefix) answer for.
+    pub default: Network,
+    pub networks: Vec<Network>,
+}
+
+/// Lower-case name used in `/net/<name>` paths; matches the serde form of [`Network`].
+fn net_name(n: Network) -> &'static str {
+    match n {
+        Network::Mainnet => "mainnet",
+        Network::Testnet => "testnet",
+        Network::Signet => "signet",
+        Network::Regtest => "regtest",
+    }
+}
+
+/// Shared handler state: one Bitcoin node and the job store. With several networks, each gets
+/// its own state, so a handler can only ever reach the node of the network in the URL.
 pub struct AppState<N, S> {
     node: Arc<N>,
     store: Arc<S>,
     config: ApiConfig,
+    catalog: Arc<NetworkCatalog>,
 }
 
 impl<N, S> Clone for AppState<N, S> {
@@ -59,6 +79,7 @@ impl<N, S> Clone for AppState<N, S> {
             node: self.node.clone(),
             store: self.store.clone(),
             config: self.config,
+            catalog: self.catalog.clone(),
         }
     }
 }
@@ -78,15 +99,17 @@ where
     N: BitcoinDataSource + SigningBoundary + FeeSource + Send + Sync + 'static,
     S: JobStore + FeeStore + OrderStore + 'static,
 {
-    let state = AppState {
-        node,
-        store,
-        config,
-    };
+    router_multi(node, Vec::new(), store, config)
+}
+
+/// One network's API: `/v1` keeps its original response shapes, `/v2` serves the same handlers
+/// wrapped in the `{ status, message, body }` envelope, with a degraded fee refresh.
+fn net_router<N, S>(state: AppState<N, S>) -> Router
+where
+    N: BitcoinDataSource + SigningBoundary + FeeSource + Send + Sync + 'static,
+    S: JobStore + FeeStore + OrderStore + 'static,
+{
     Router::new()
-        .route("/health", get(health))
-        // `/v1` keeps its original response shapes. `/v2` serves the same handlers wrapped in
-        // the `{ status, message, body }` envelope, with a degraded fee refresh.
         .nest("/v1", api_routes::<N, S>(false))
         .nest(
             "/v2",
@@ -96,6 +119,54 @@ where
                 .layer(middleware::from_fn(envelope::wrap)),
         )
         .with_state(state)
+}
+
+/// [`router_with_config`] for several networks. `primary` also answers the unprefixed `/v1` and
+/// `/v2`; every node, `primary` included, answers under `/net/<network>/v1` and `/v2`. Each
+/// network has its own node, so requests for one network never reach another's node.
+///
+/// # Panics
+/// If two nodes are for the same network.
+pub fn router_multi<N, S>(
+    primary: Arc<N>,
+    extra: Vec<Arc<N>>,
+    store: Arc<S>,
+    config: ApiConfig,
+) -> Router
+where
+    N: BitcoinDataSource + SigningBoundary + FeeSource + Send + Sync + 'static,
+    S: JobStore + FeeStore + OrderStore + 'static,
+{
+    let mut nodes = vec![primary];
+    nodes.extend(extra);
+    let networks: Vec<Network> = nodes.iter().map(|n| n.network()).collect();
+    for (i, n) in networks.iter().enumerate() {
+        assert!(
+            !networks[..i].contains(n),
+            "two nodes configured for {}",
+            net_name(*n)
+        );
+    }
+    let catalog = Arc::new(NetworkCatalog {
+        default: networks[0],
+        networks,
+    });
+    let state_for = |node: &Arc<N>| AppState {
+        node: node.clone(),
+        store: store.clone(),
+        config,
+        catalog: catalog.clone(),
+    };
+    let mut app = Router::new()
+        .route("/health", get(health))
+        .merge(net_router(state_for(&nodes[0])));
+    for node in &nodes {
+        app = app.nest(
+            &format!("/net/{}", net_name(node.network())),
+            net_router(state_for(node)),
+        );
+    }
+    app
 }
 
 /// The API routes, relative to their version prefix.
@@ -112,6 +183,7 @@ where
     Router::new()
         .route("/fees", fees)
         .route("/fees/latest", get(latest_fees::<N, S>))
+        .route("/networks", get(networks::<N, S>))
         .route("/orders/sync", post(sync_orders::<N, S>))
         .route("/analyze/{txid}", get(analyze::<N, S>))
         .route("/outputs/{txid}", get(tx_outputs::<N, S>))
@@ -134,6 +206,11 @@ pub fn with_spa(app: Router, dir: impl AsRef<std::path::Path>) -> Router {
         .fallback_service(
             ServeDir::new(dir).not_found_service(ServeFile::new(dir.join("404.html"))),
         )
+}
+
+/// The networks this server offers and the default one, for the client's network switch.
+async fn networks<N, S>(State(state): State<AppState<N, S>>) -> Json<NetworkCatalog> {
+    Json((*state.catalog).clone())
 }
 
 async fn health() -> Json<Value> {
@@ -742,6 +819,7 @@ where
         .store
         .get(id)
         .await?
+        .filter(|j| j.network == state.node.network())
         .map(Json)
         .ok_or(ApiError::NotFound)
 }
@@ -755,7 +833,12 @@ where
     N: BitcoinDataSource + SigningBoundary + Send + Sync + 'static,
     S: JobStore + 'static,
 {
-    state.store.get(id).await?.ok_or(ApiError::NotFound)?;
+    state
+        .store
+        .get(id)
+        .await?
+        .filter(|j| j.network == state.node.network())
+        .ok_or(ApiError::NotFound)?;
     Ok(Json(state.store.history(id).await?))
 }
 
@@ -775,7 +858,12 @@ where
     N: BitcoinDataSource + SigningBoundary + Send + Sync + 'static,
     S: JobStore + 'static,
 {
-    let job = state.store.get(id).await?.ok_or(ApiError::NotFound)?;
+    let job = state
+        .store
+        .get(id)
+        .await?
+        .filter(|j| j.network == state.node.network())
+        .ok_or(ApiError::NotFound)?;
     let not_awaiting = || ApiError::Conflict("this job is not awaiting a signature".into());
     if job.state != JobState::AwaitingSignature || !state.store.claim_for_broadcast(id).await? {
         return Err(not_awaiting());
@@ -985,6 +1073,122 @@ mod tests {
             Arc::new(MemStore::default()),
             no_cooldown(),
         )
+    }
+
+    /// A [`Mock`] that claims to be on a given network.
+    struct OnNet(Mock, Network);
+
+    impl BitcoinDataSource for OnNet {
+        fn network(&self) -> Network {
+            self.1
+        }
+        async fn analyze(&self, txid: &str) -> Result<TxAnalysis, BitcoinError> {
+            self.0.analyze(txid).await
+        }
+        async fn tx_inputs(&self, txid: &str) -> Result<Vec<Outpoint>, BitcoinError> {
+            self.0.tx_inputs(txid).await
+        }
+        async fn find_spenders(&self, o: &[Outpoint]) -> Result<Vec<Option<String>>, BitcoinError> {
+            self.0.find_spenders(o).await
+        }
+    }
+
+    impl FeeSource for OnNet {
+        async fn fee_snapshot(&self, now: i64) -> Result<FeeSnapshot, BitcoinError> {
+            let mut snap = self.0.fee_snapshot(now).await?;
+            snap.network = self.1;
+            Ok(snap)
+        }
+    }
+
+    impl SigningBoundary for OnNet {
+        async fn build_rbf(&self, req: &RbfRequest) -> Result<UnsignedCandidate, BitcoinError> {
+            self.0.build_rbf(req).await
+        }
+        async fn build_cpfp(&self, req: &CpfpRequest) -> Result<UnsignedCandidate, BitcoinError> {
+            self.0.build_cpfp(req).await
+        }
+        async fn broadcast_signed(&self, u: &str, s: &str) -> Result<String, BitcoinError> {
+            self.0.broadcast_signed(u, s).await
+        }
+    }
+
+    fn two_networks() -> Router {
+        let txid = "a".repeat(64);
+        router_multi(
+            Arc::new(OnNet(Mock(Ok(stuck(&txid))), Network::Regtest)),
+            vec![Arc::new(OnNet(Mock(Ok(stuck(&txid))), Network::Signet))],
+            Arc::new(MemStore::default()),
+            no_cooldown(),
+        )
+    }
+
+    #[tokio::test]
+    async fn networks_lists_every_configured_network_and_the_default() {
+        let app = two_networks();
+        for uri in ["/v2/networks", "/net/signet/v2/networks"] {
+            let (status, body) = get_json(&app, uri).await;
+            assert_eq!(status, StatusCode::OK);
+            assert_eq!(body["body"]["default"], "regtest");
+            assert_eq!(body["body"]["networks"], json!(["regtest", "signet"]));
+        }
+        // A network that is not configured has no routes.
+        let (status, _) = get_json(&app, "/net/mainnet/v2/networks").await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn each_network_serves_its_own_node_and_the_unprefixed_api_is_the_default() {
+        let app = two_networks();
+        let get = |uri: String| Request::get(uri).body(Body::empty()).unwrap();
+        for uri in ["/v1/fees", "/net/regtest/v1/fees", "/net/signet/v1/fees"] {
+            let (status, _) = call(&app, get(uri.to_string())).await;
+            assert_eq!(status, StatusCode::OK, "{uri}");
+        }
+        let (_, regtest) = call(&app, get("/v1/fees/latest".into())).await;
+        let (_, signet) = call(&app, get("/net/signet/v1/fees/latest".into())).await;
+        assert_eq!(regtest["snapshot"]["network"], "regtest");
+        assert_eq!(signet["snapshot"]["network"], "signet");
+    }
+
+    #[tokio::test]
+    async fn a_job_is_invisible_on_the_other_network() {
+        let app = two_networks();
+        let txid = "a".repeat(64);
+        let (status, created) = post_json(
+            &app,
+            "/net/regtest/v1/jobs/rbf",
+            json!({ "txid": txid, "change_vout": 1 }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::CREATED);
+        let id = created["job_id"].as_str().unwrap();
+        for tail in ["", "/history"] {
+            let (status, _) = get_json(&app, &format!("/net/regtest/v1/jobs/{id}{tail}")).await;
+            assert_eq!(status, StatusCode::OK);
+            let (status, _) = get_json(&app, &format!("/net/signet/v1/jobs/{id}{tail}")).await;
+            assert_eq!(status, StatusCode::NOT_FOUND, "{tail}");
+        }
+        let (status, _) = post_json(
+            &app,
+            &format!("/net/signet/v1/jobs/{id}/submit"),
+            json!({ "signed_psbt": "x" }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+    }
+
+    #[test]
+    #[should_panic(expected = "two nodes configured for regtest")]
+    fn two_nodes_on_one_network_is_a_configuration_error() {
+        let txid = "a".repeat(64);
+        let node = || Arc::new(OnNet(Mock(Ok(stuck(&txid))), Network::Regtest));
+        let _ = router_multi(
+            node(),
+            vec![node()],
+            Arc::new(MemStore::default()),
+            no_cooldown(),
+        );
     }
 
     #[tokio::test]
