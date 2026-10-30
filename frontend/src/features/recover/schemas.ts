@@ -24,7 +24,6 @@ const triState = z.enum(['unknown', 'yes', 'no']);
 export const findSchema = z.object({
   txid: txidField,
   urgency: z.enum(['low', 'normal', 'high']),
-  budget: optionalSats('The limit'),
   canSign: triState,
   controls: triState,
   outputValue: optionalSats('The output value'),

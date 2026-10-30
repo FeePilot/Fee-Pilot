@@ -43,7 +43,6 @@ export function FindForm({
     defaultValues: {
       txid: initialTxid,
       urgency: 'normal',
-      budget: '',
       canSign: 'unknown',
       controls: 'unknown',
       outputValue: '',
@@ -86,14 +85,6 @@ export function FindForm({
           hint="How high RBF and CPFP aim: 0.5x, 1x or 1.5x the next-block rate. No paid service, and no guarantee of confirmation."
         />
         <div className="grid items-start gap-5 sm:grid-cols-2">
-          <FormInput
-            control={control}
-            name="budget"
-            label="Max extra fee (sats), optional"
-            inputMode="numeric"
-            placeholder="no limit"
-            hint="Optional. Leave empty and FeePilot works out the fee itself and recommends the cheapest route that works. Fill it in only to set a ceiling: routes costing more than this are marked not possible. This is a limit in sats, not a fee rate."
-          />
           <FormSelect
             control={control}
             name="canSign"

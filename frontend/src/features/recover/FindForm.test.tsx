@@ -31,7 +31,6 @@ describe('FindForm', () => {
     expect(onAnalyze.mock.calls[0]?.[0]).toMatchObject({
       txid: GOOD,
       urgency: 'normal',
-      budget: null,
       canSign: 'unknown',
       controls: 'unknown',
     });
