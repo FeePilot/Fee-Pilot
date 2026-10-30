@@ -81,7 +81,7 @@ impl<N: BitcoinDataSource, S: JobStore> Tracker<N, S> {
     /// others; only failing to list the jobs is an error.
     pub async fn tick(&self) -> Result<Vec<Event>, StoreError> {
         let mut events = Vec::new();
-        for job in self.store.list_active().await? {
+        for job in self.store.list_active(self.node.network()).await? {
             match self.observe(&job).await {
                 Ok(Some(event)) => events.push(event),
                 Ok(None) => {}

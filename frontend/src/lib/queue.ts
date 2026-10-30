@@ -3,6 +3,7 @@
 // broadcast, so every new record starts as `awaiting_verification`.
 
 import type { OrderState, SyncResult, UpsertOutcome } from '@/api/schemas';
+import { scopedKey } from './network';
 
 export const SCHEMA_VERSION = 1;
 export const DB_NAME = 'feepilot-queue';
@@ -177,7 +178,7 @@ export function idbBackend(
   const open = () =>
     new Promise<IDBDatabase>((resolve, reject) => {
       if (!factory) return reject(new Error('IndexedDB is not available'));
-      const req = factory.open(DB_NAME, SCHEMA_VERSION);
+      const req = factory.open(scopedKey(DB_NAME), SCHEMA_VERSION);
       req.onupgradeneeded = () =>
         req.result.createObjectStore('orders', { keyPath: 'id' });
       req.onsuccess = () => resolve(req.result);

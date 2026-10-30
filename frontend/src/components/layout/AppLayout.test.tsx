@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MotionConfig } from 'motion/react';
 import { HelmetProvider } from 'react-helmet-async';
 import { MemoryRouter, Route, Routes } from 'react-router';
@@ -10,8 +11,17 @@ import AppLayout from './AppLayout';
 
 let online = true;
 let network: 'regtest' | 'mainnet' = 'regtest';
+let offered: ('regtest' | 'signet')[] = ['regtest'];
 vi.mock('@/api/hooks', () => ({
   useOnline: () => online,
+  useNetworks: () => ({
+    data: {
+      ok: true,
+      status: 200,
+      message: 'ok',
+      body: { default: 'regtest', networks: offered },
+    },
+  }),
   useFees: () => ({
     fees: {
       snapshot: feesFixture({ snapshot: snapshotFixture({ network }) })
@@ -49,6 +59,8 @@ describe('AppLayout', () => {
   beforeEach(() => {
     online = true;
     network = 'regtest';
+    offered = ['regtest'];
+    localStorage.clear();
   });
 
   it('renders navigation, the network pill and the page', () => {
@@ -80,5 +92,32 @@ describe('AppLayout', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(
       /early build: test on regtest or signet first/i,
     );
+  });
+  it('shows a plain network pill when the server offers one network', () => {
+    renderLayout();
+    expect(screen.queryByRole('group', { name: 'Network' })).toBeNull();
+    expect(screen.getByText('regtest')).toBeInTheDocument();
+  });
+
+  it('offers a switch when the server has several networks', async () => {
+    offered = ['regtest', 'signet'];
+    renderLayout();
+    const group = screen.getByRole('group', { name: 'Network' });
+    expect(
+      within(group).getByRole('button', { name: 'regtest' }),
+    ).toHaveAttribute('aria-pressed', 'true');
+    expect(
+      within(group).getByRole('button', { name: 'signet' }),
+    ).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('remembers the chosen network and clears the choice for the default', async () => {
+    offered = ['regtest', 'signet'];
+    renderLayout();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'signet' }));
+    expect(localStorage.getItem('feepilot.network.v1')).toBe('signet');
+    await user.click(screen.getByRole('button', { name: 'regtest' }));
+    expect(localStorage.getItem('feepilot.network.v1')).toBeNull();
   });
 });

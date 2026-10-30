@@ -23,6 +23,7 @@ import {
   type OrderQueue,
   type OrderRecord,
 } from '@/lib/queue';
+import { scopedKey } from '@/lib/network';
 import { readItem, writeItem } from '@/lib/storage';
 import {
   cacheFromResult,
@@ -37,6 +38,7 @@ import {
   historySchema,
   jobCreatedSchema,
   jobSchema,
+  networksBodySchema,
   outputsBodySchema,
   recommendationSchema,
   syncBodySchema,
@@ -137,15 +139,17 @@ export type FeesView = {
 export const feesKey = ['fees'] as const;
 
 export function useFees(): FeesView {
-  const [stored] = useState(() => parseCacheEntry(readItem(STORE_KEY)));
-  const latestStored = () => parseCacheEntry(readItem(STORE_KEY));
+  const [stored] = useState(() =>
+    parseCacheEntry(readItem(scopedKey(STORE_KEY))),
+  );
+  const latestStored = () => parseCacheEntry(readItem(scopedKey(STORE_KEY)));
   const query = useQuery({
     queryKey: feesKey,
     queryFn: async ({ signal }) => {
       const result = await call('/v2/fees', feesBodySchema, { signal });
       const nowMs = Date.now();
       const entry = cacheFromResult(result, nowMs);
-      if (entry) writeItem(STORE_KEY, JSON.stringify(entry));
+      if (entry) writeItem(scopedKey(STORE_KEY), JSON.stringify(entry));
       return resolveFees(result, entry ?? latestStored(), nowMs);
     },
     retry: false,
@@ -182,6 +186,18 @@ export function useAnalyze() {
         `/v2/analyze/${encodeURIComponent(input.txid.trim())}?${analyzeQuery(input)}`,
         recommendationSchema,
       ),
+  });
+}
+
+/** The networks the server offers and its default; one entry means there is nothing to switch. */
+export function useNetworks() {
+  return useQuery({
+    queryKey: ['networks'],
+    queryFn: ({ signal }) =>
+      call('/v2/networks', networksBodySchema, { signal }),
+    retry: false,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
 }
 

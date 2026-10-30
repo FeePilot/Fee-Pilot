@@ -137,6 +137,9 @@ pub struct Job {
     pub unsigned_psbt: String,
     pub extra_fee_sat: u64,
     pub recovery_txid: Option<String>,
+    /// The network this job lives on; never sent to clients.
+    #[serde(skip)]
+    pub network: Network,
     #[serde(skip)]
     pub inputs: Vec<Outpoint>,
 }
@@ -168,8 +171,12 @@ pub trait JobStore: Send + Sync {
     /// Return a failed `broadcasting` job to `awaiting_signature` so it can be retried.
     fn release(&self, id: Uuid) -> impl Future<Output = Result<(), StoreError>> + Send;
 
-    /// Jobs the tracker should look at: see [`JobState::ACTIVE`].
-    fn list_active(&self) -> impl Future<Output = Result<Vec<Job>, StoreError>> + Send;
+    /// Jobs on `network` the tracker should look at: see [`JobState::ACTIVE`]. A tracker never
+    /// sees another network's jobs, so it cannot ask the wrong node about them.
+    fn list_active(
+        &self,
+        network: Network,
+    ) -> impl Future<Output = Result<Vec<Job>, StoreError>> + Send;
     /// Compare-and-set a job's state. False if it was no longer in `from`, e.g. because the
     /// user submitted while the tracker was looking.
     fn transition(
@@ -236,12 +243,16 @@ pub struct PgStore {
 }
 
 const JOB_COLUMNS: &str =
-    "id, txid, chosen_route, state, unsigned_psbt, extra_fee_sat, recovery_txid, watched_inputs";
+    "id, txid, network, chosen_route, state, unsigned_psbt, extra_fee_sat, recovery_txid, watched_inputs";
 
 fn job_from_row(row: &PgRow) -> Result<Job, StoreError> {
     Ok(Job {
         id: row.try_get("id")?,
         txid: row.try_get("txid")?,
+        network: row
+            .try_get::<&str, _>("network")?
+            .parse()
+            .map_err(StoreError)?,
         route: route_parse(row.try_get::<&str, _>("chosen_route")?)?,
         state: JobState::parse(row.try_get::<&str, _>("state")?)?,
         unsigned_psbt: row
@@ -290,6 +301,7 @@ impl JobStore for PgStore {
             unsigned_psbt: new.unsigned_psbt,
             extra_fee_sat: new.extra_fee_sat,
             recovery_txid: None,
+            network: new.network,
             inputs: new.inputs,
         })
     }
@@ -326,12 +338,13 @@ impl JobStore for PgStore {
             .map(drop)
     }
 
-    async fn list_active(&self) -> Result<Vec<Job>, StoreError> {
+    async fn list_active(&self, network: Network) -> Result<Vec<Job>, StoreError> {
         let states: Vec<&str> = JobState::ACTIVE.iter().map(|s| s.as_str()).collect();
         sqlx::query(&format!(
-            "SELECT {JOB_COLUMNS} FROM jobs WHERE state = ANY($1) ORDER BY created_at"
+            "SELECT {JOB_COLUMNS} FROM jobs WHERE state = ANY($1) AND network = $2 ORDER BY created_at"
         ))
         .bind(states)
+        .bind(network_str(network))
         .fetch_all(&self.pool)
         .await?
         .iter()
@@ -494,6 +507,7 @@ impl JobStore for MemStore {
             unsigned_psbt: new.unsigned_psbt,
             extra_fee_sat: new.extra_fee_sat,
             recovery_txid: None,
+            network: new.network,
             inputs: new.inputs,
         };
         self.jobs.lock().unwrap().insert(job.id, job.clone());
@@ -523,13 +537,13 @@ impl JobStore for MemStore {
             .map(drop)
     }
 
-    async fn list_active(&self) -> Result<Vec<Job>, StoreError> {
+    async fn list_active(&self, network: Network) -> Result<Vec<Job>, StoreError> {
         let mut jobs: Vec<Job> = self
             .jobs
             .lock()
             .unwrap()
             .values()
-            .filter(|j| JobState::ACTIVE.contains(&j.state))
+            .filter(|j| JobState::ACTIVE.contains(&j.state) && j.network == network)
             .cloned()
             .collect();
         jobs.sort_by_key(|j| j.id);

@@ -61,7 +61,15 @@ impl RateLimiter {
     }
 }
 
+/// The path without a leading `/net/<network>` segment.
+fn strip_net(path: &str) -> &str {
+    path.strip_prefix("/net/")
+        .and_then(|rest| rest.find('/').map(|i| &rest[i..]))
+        .unwrap_or(path)
+}
+
 fn is_api(path: &str) -> bool {
+    let path = strip_net(path);
     path.starts_with("/v1/") || path.starts_with("/v2/")
 }
 
@@ -69,7 +77,7 @@ async fn limit(State(rl): State<Arc<RateLimiter>>, req: Request, next: Next) -> 
     if !is_api(req.uri().path()) {
         return next.run(req).await;
     }
-    let v2 = req.uri().path().starts_with("/v2/");
+    let v2 = strip_net(req.uri().path()).starts_with("/v2/");
     // Behind a reverse proxy every request shares the proxy's address; the operator should
     // limit there as well. Forwarded headers are not trusted because clients can set them.
     let client = req
